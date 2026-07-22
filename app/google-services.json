@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1034982286458",
+    "project_id": "codeshare-dfbdd",
+    "storage_bucket": "codeshare-dfbdd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1034982286458:android:6396977df92195f1d187c3",
+        "android_client_info": {
+          "package_name": "com.codeshare.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCbVA4WXgt0ThF0Kd_V3ZkmG7UBqanyIeA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

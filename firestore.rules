@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+
+    function me() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isOwner() { return signedIn() && me().role == 'OWNER'; }
+    function isAdmin() { return signedIn() && (me().role == 'ADMIN' || me().role == 'OWNER'); }
+    function notBanned() { return signedIn() && me().banned != true; }
+
+    // ─── کاربران ───
+    match /users/{userId} {
+      allow read: if signedIn();
+      // ساخت سند خود کاربر هنگام ثبت‌نام
+      allow create: if signedIn() && request.auth.uid == userId;
+      // ویرایش پروفایل خود (بدون تغییر نقش/مسدودیت) یا توسط مالک
+      allow update: if isOwner()
+        || (signedIn() && request.auth.uid == userId
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.banned == resource.data.banned)
+        // افزایش امتیاز/شمارنده‌ها توسط کاربران لاگین‌شده (سیستم امتیاز)
+        || (signedIn()
+            && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['points', 'uploadsCount', 'commentsCount']));
+      allow delete: if isOwner();
+    }
+
+    // ─── فایل‌های کد ───
+    match /files/{fileId} {
+      allow read: if signedIn();
+      // فقط ادمین/مالک آپلود می‌کند
+      allow create: if isAdmin() && notBanned()
+        && request.resource.data.authorId == request.auth.uid;
+      // نویسنده یا مالک ویرایش کامل؛ بقیه فقط شمارنده‌ها
+      allow update: if (isAdmin() && resource.data.authorId == request.auth.uid)
+        || isOwner()
+        || (notBanned()
+            && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['views', 'downloads', 'likes', 'dislikes',
+                         'ratingSum', 'ratingCount', 'commentsCount']));
+      allow delete: if isOwner()
+        || (isAdmin() && resource.data.authorId == request.auth.uid);
+    }
+
+    // ─── نظرات ───
+    match /comments/{commentId} {
+      allow read: if signedIn();
+      allow create: if notBanned()
+        && request.resource.data.userId == request.auth.uid;
+      // لایک نظر توسط همه؛ حذف توسط صاحب نظر یا ادمین
+      allow update: if notBanned()
+        && request.resource.data.diff(resource.data).affectedKeys()
+           .hasOnly(['likes', 'likedBy']);
+      allow delete: if isAdmin()
+        || (signedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    // ─── واکنش‌ها (لایک/امتیاز/بوکمارک) ───
+    match /reactions/{reactionId} {
+      allow read: if signedIn();
+      allow write: if notBanned()
+        && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    // ─── گزارش‌ها ───
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if notBanned()
+        && request.resource.data.reporterId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ─── اعلان‌ها ───
+    match /notifications/{notifId} {
+      allow read: if signedIn();
+      allow create: if notBanned();
+      allow update: if signedIn();
+      allow delete: if isAdmin();
+    }
+  }
+}
